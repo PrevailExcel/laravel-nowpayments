@@ -1,0 +1,45 @@
+<?php
+
+/*
+ * This file is part of the Laravel NOWPayments package.
+ *
+ * (c) Prevail Ejimadu <prevailexcellent@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+
+return [
+
+    /**
+     * API Key From NOWPayments Dashboard
+     *
+     */
+    'apiKey' => getenv('NOWPAYMENTS_API_KEY'),
+
+    /**
+     * You enviroment can either be live or sandbox.
+     * Make sure to add the appropriate API key after changing the enviroment in .env
+     *
+     */
+    'env' => getenv('NOWPAYMENTS_ENV', 'sandbox'),
+
+    /**
+     * NOWPayments Live URL
+     *
+     */
+    'liveUrl' => getenv('NOWPAYMENTS_LIVE_URL', "https://api.nowpayments.io/v1"),
+
+    /**
+     * NOWPayments Sandbox URL
+     *
+     */
+    'sandboxUrl' => getenv('NOWPAYMENTS_SANDBOX_URL', "https://api-sandbox.nowpayments.io/v1"),
+
+    /**
+     * Your callback URL
+     *
+     */
+    'callbackUrl' => getenv('NOWPAYMENTS_CALLBACK_URL'),
+];

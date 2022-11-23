@@ -1,0 +1,44 @@
+{
+    "name": "prevailexcel/laravel-nowpayments", 
+    "description": "A Laravel Package for NOWPayments",
+    "keywords": [
+      "php",
+      "github",
+      "laravel",
+      "Open Source",
+      "payments",
+      "crypto",
+      "Nowpayments",
+      "crypto payments",
+      "laravel 6",
+      "laravel 7",
+      "laravel 8",
+      "laravel 9"
+    ],    
+    "license": "MIT",
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "PrevailExcel\\Nowpayments\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "PrevailExcel",
+            "email": "prevailexcellent@gmail.com"
+        }
+    ],
+    "require": {
+        "guzzlehttp/guzzle": "^7.0.1"
+    },
+    "extra": {
+      "laravel": {
+        "providers": [
+          "PrevailExcel\\Nowpayments\\NowpaymentsServiceProvider"
+        ],
+        "aliases": {
+          "'Nowpayments": "PrevailExcel\\Nowpayments\\Facades\\Nowpayments"
+        }
+      }
+    }
+}
