@@ -1,7 +1,11 @@
 # laravel-nowpayments
 
-> A Laravel Package for working with NOWPayments seamlessly
+[![Latest Stable Version](https://poser.pugx.org/prevailexcel/laravel-nowpayments/v/stable.svg)](https://packagist.org/packages/prevailexcel/laravel-nowpayments)
+[![License](https://poser.pugx.org/prevailexcel/laravel-nowpayments/license.svg)](LICENSE.md)
 
+> A Laravel Package for working with NOWPayments seamlessly 
+##
+> This package comes now with a default dashboard that show the list of all payments and also shows a log of endpoints that have been accessed from your application, fluent methods to handle payments easily and removes the bulk of the heavy work from you.
 ## Installation
 
 [PHP](https://php.net) 5.4+ or [HHVM](http://hhvm.com) 3.3+, and [Composer](https://getcomposer.org) are required.
@@ -22,7 +26,7 @@ You'll then need to run `composer install` or `composer update` to download it a
 
 
 
-Once Laravel Paystack is installed, you need to register the service provider. Open up `config/app.php` and add the following to the `providers` key.
+Once Laravel NOWPayments is installed, you need to register the service provider. Open up `config/app.php` and add the following to the `providers` key.
 
 ```php
 'providers' => [
@@ -32,7 +36,7 @@ Once Laravel Paystack is installed, you need to register the service provider. O
 ]
 ```
 
-> If you use **Laravel >= 5.5** you can skip this step and go to [**`configuration`**](https://github.com/unicodeveloper/laravel-nowpayments#configuration)
+> If you use **Laravel >= 5.5** you can skip this step and go to [**`configuration`**](https://github.com/PrevailExcel/laravel-nowpayments#configuration)
 
 * `PrevailExcel\Nowpayments\NowpaymentsServiceProvider::class`
 
@@ -58,6 +62,7 @@ A configuration-file named `nowpayments.php` with some sensible defaults will be
 
 ```php
 <?php
+
 
 return [
 
@@ -91,32 +96,71 @@ return [
      *
      */
     'callbackUrl' => getenv('NOWPAYMENTS_CALLBACK_URL'),
+
+    /**
+     * Your URL Path
+     *
+     */
+    'path' => 'laravel-nowpayments',
+
+    /**
+     * You can add your custom middleware to access the dashboard here
+     *
+     */
+    'middleware' => null, // "Authorise::class",
+
+    /**
+     * Your Nowpayment email here
+     *
+     */
+    'email' => getenv('NOWPAYMENTS_EMAIL'),
+    
+    /**
+     * Your Nowpayment password here
+     *
+     */
+    'password' =>  getenv('NOWPAYMENTS_PASSWORD'),
 ];
 ```
 
+Remeber to run your migration to add one table to the database for logging with this command
 
-## General e-commerce payment flow
+```bash
+php artisan migrate
+```
 
-### 1
-API - Check API availability with the "GET API status" method. If required, check the list of available payment currencies with the "GET available currencies" method.
-### 2
-UI - Ask a customer to select item/items for purchase to determine the total sum;
-### 3
-UI - Ask a customer to select payment currency
-### 4
-API - Get the minimum payment amount for the selected currency pair (payment currency to your Outcome Wallet currency) with the "GET Minimum payment amount" method;
-### 5
-API - Get the estimate of the total amount in crypto with "GET Estimated price" and check that it is larger than the minimum payment amount from step 4;
-### 6
-API - Call the "POST Create payment" method to create a payment and get the deposit address (in our example, the generated BTC wallet address is returned from this method);
-### 7
-UI - Ask a customer to send the payment to the generated deposit address (in our example, user has to send BTC coins);
-### 8
-UI - A customer sends coins, NOWPayments processes and exchanges them (if required), and settles the payment to your Outcome Wallet (in our example, to your ETH address);
-### 9
-API - You can get the payment status either via our IPN callbacks or manually, using "GET Payment Status" and display it to a customer so that they know when their payment has been processed.
-### 10
-API - you call the list of payments made to your account via the "GET List of payments" method. Additionally, you can see all of this information in your Account on NOWPayments website.
+You can test the dashboard to see if your set up is ready by serving your application and going to /laravel-nowpayments
+
+```bash
+127.0.0.1:8000/laravel-nowpayments
+```
+You can change this default path/url by changing the 'path' from the config file at `nowpayments.php` in your `config` folder
+
+```php
+<?php
+
+return [
+    ...
+    // 'path' => 'laravel-nowpayments',
+    'path' => 'new-endpoint',
+];
+```
+
+## General E-commerce Payment Flow
+
+### 1 UI - Ask a customer to select item/items for purchase to determine the total sum
+### 2 UI - Ask a customer to select payment currency
+### 3 API - Call Nowpayments::createPayment() method;
+Pass the data from the User as an array. This method does the magic. First it gets the minimum payment amount for the currency pair, then it gets the estimate of the total amount in crypto and checks that it is larger than the minimum payment amount.
+
+If it's true, it sends the payload and gets the payment data that inclues the generated wallet address for the user.
+### 4 UI - Ask a customer to send the payment to the generated deposit address.
+### 5 UI - A customer sends coins, NOWPayments processes and exchanges them (if required), and settles the payment to your Outcome Wallet.
+### 6 API - Check the payment status
+You can get the payment status either via NOWPayments IPN callbacks or manually using "nowpayments()->getPaymentStatus()" and display it to a customer so that they know when their payment has been processed.
+### 7 Check the dashboard for a list of all your payments
+This package comes with a default Dashboard that show a list of all payments and also shows a log of endpoints thta have been accessed from your application.
+Additionally, you can see all of this information in your Account on NOWPayments website.
 
 
 ## Usage
@@ -124,11 +168,11 @@ API - you call the list of payments made to your account via the "GET List of pa
 Open your .env file and add your api key, env, callback url like so:
 
 ```php
-NOWPAYMENTS_LIVE_URL="https://api.nowpayments.io/v1"
-NOWPAYMENTS_SANDBOX_URL="https://api-sandbox.nowpayments.io/v1"
 NOWPAYMENTS_ENV="live"
 NOWPAYMENTS_API_KEY="*******-*******-*******-*******"
 NOWPAYMENTS_CALLBACK_URL="https://yourcallback.com"
+NOWPAYMENTS_EMAIL="hello@example.com"
+NOWPAYMENTS_PASSWORD="your password"
 ```
 *If you are using a hosting service like heroku, ensure to add the above details to your configuration variables.*
 
@@ -179,8 +223,9 @@ class PaymentController extends Controller
             $data = [
                 'price_amount' => request()->price_amount ?? 100,
                 'price_currency' => request()->price_currency ?? 'usd',
-                'order_id' => request()->order_id ?? uniqid(),
+                'order_id' => request()->order_id ?? uniqid(), // you can generate your order id as you wish
                 'pay_currency' => request()->pay_currency ?? 'btc',
+                'payout_currency' => request()->payout_currency ?? 'btc',
             ];
 
            $paymentDetails = Nowpayments::createPayment($data);
@@ -189,9 +234,9 @@ class PaymentController extends Controller
             // Now you have the payment details,
             // you can then redirect or do whatever you want
 
-            return Redirect::back()->with(['msg'=> "Payment created successfully", 'type'=>'success'], 'data'=>$response);
+            return Redirect::back()->with(['msg'=>"Payment created successfully", 'type'=>'success'], 'data'=>$paymentDetails);
         }catch(\Exception $e) {
-            return Redirect::back()->withMessage(['msg'=> "There's an error in the data", 'type'=>'error']);
+            return Redirect::back()->withMessage(['msg'=>"There's an error in the data", 'type'=>'error']);
         }        
     }
 }
@@ -204,13 +249,25 @@ Some fluent methods this package provides are listed here.
  * This is the method to create a payment. You need to provide your data as an array.
  * @returns array
  */
-Nowpayments::createPayment(array $data);
+Nowpayments::createPayment();
+
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->createPayment();
+
 
 /**
  * Gets the payment details of a particular transaction including the status with the paymentId 
  * @returns array
  */
-Nowpayments::getPaymentStatus($paymentId);
+Nowpayments::getPaymentStatus();
+
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->getPaymentStatus();
+
 
 /**
  * Get all currenices
@@ -219,18 +276,78 @@ Nowpayments::getPaymentStatus($paymentId);
 Nowpayments::getCurrencies()
 
 /**
-     *   Get the minimum payment amount for a specific pair.
-     *   You can provide both currencies in the pair or just currency_from, and we will calculate the minimum *   payment amount for currency_from and currency which you have specified as the outcome in the Store *   Settings.
-     *   
- * @returns array
+ * Alternatively, use the helper.
  */
-Nowpayments::getMinimumPaymentAmount(string $currency_from, string $currency_to);
+nowpayments()->getCurrencies();
+
 
 /**
- *  Creates invoice with url where you can complete the payment.
+ *   Get the minimum payment amount for a specific pair.
+ */
+Nowpayments::getMinimumPaymentAmount();
+
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->getMinimumPaymentAmount();
+
+
+/**
+ *  Creates invoice with url where user can complete the payment.
  * @returns array
  */
-Nowpayments::createInvoice(array $data);
+Nowpayments::createInvoice();
+
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->createInvoice();
+
+
+/**
+ * This method allows you to obtain information about all the payment plans you’ve created.
+ * @returns array
+ */
+Nowpayments::getPlans();
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->getPlans();
+
+
+/**
+ * Get information about a particular recurring payment via its ID.
+ * @returns array
+ */
+Nowpayments::getSubscription();
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->getSubscription();
+
+
+/**
+ * This method allows you to send payment links to your customers via email.
+ * @returns array
+ */
+Nowpayments::emailSubscription();
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->emailSubscription();
+
+
+/**
+ * Completely removes a particular payment from the recurring payment plan.
+ * @returns array
+ */
+Nowpayments::deleteSubscription();
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->deleteSubscription();
+
+
 /**
      * Returns the entire list of all transactions, created with certain API key.
  * @returns array
@@ -238,17 +355,29 @@ Nowpayments::createInvoice(array $data);
 Nowpayments::getListOfPayments();
 
 /**
+ * Alternatively, use the helper.
+ */
+nowpayments()->getListOfPayments();
+
+
+/**
 * This method gets the estitmate price of an amount in different pairs
 * @return array
 */
 Nowpayments::getEstimatePrice();
+
+/**
+ * Alternatively, use the helper.
+ */
+nowpayments()->getEstimatePrice();
+
 ```
 
 ## Todo
 
-* Charge Returning Customers
 * Add Comprehensive Tests
-* Implement Transaction Dashboard to see all of the transactions in your laravel app
+* Add Support For Billing Endpoints
+* Add Support For Payout Endpoints
 
 ## Contributing
 
@@ -259,9 +388,10 @@ Please feel free to fork this package and contribute by submitting a pull reques
 Why not star the github repo? I'd love the attention! Why not share the link for this repository on Twitter or HackerNews? Spread the word!
 
 Don't forget to [follow me on twitter](https://twitter.com/EjimaduPrevail)!
+Also check out my page on medium to catch articles and tutorials on Laravel [follow me on medium](https://medium.com/@prevailexcellent)!
 
 Thanks!
-Prevail Ejimadu.
+Chimeremeze Prevail Ejimadu.
 
 ## License
 

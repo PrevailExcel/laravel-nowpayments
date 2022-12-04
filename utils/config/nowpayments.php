@@ -42,4 +42,29 @@ return [
      *
      */
     'callbackUrl' => getenv('NOWPAYMENTS_CALLBACK_URL'),
+
+    /**
+     * Your URL Path
+     *
+     */
+    'path' => 'laravel-nowpayments',
+
+    /**
+     * You can add your custom middleware to access the dashboard here
+     *
+     */
+    'middleware' => null, // "Authorise::class",
+
+    /**
+     * Your Nowpayment email here
+     *
+     */
+    'email' => getenv('NOWPAYMENTS_EMAIL'),
+    
+    /**
+     * Your Nowpayment password here
+     *
+     */
+    'password' =>  getenv('NOWPAYMENTS_PASSWORD'),
+
 ];

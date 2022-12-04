@@ -23,4 +23,7 @@ class Nowpayments extends Facade
     {
         return 'laravel-nowpayments';
     }
+    
+    final public const VERSION = '1.0.1';
+
 }

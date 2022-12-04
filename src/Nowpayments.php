@@ -5,8 +5,7 @@ namespace PrevailExcel\Nowpayments;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Config;
-use Nowpayments\Template\Response\EstimatedPriceReturn;
-use Nowpayments\Template\Response\GetEstimatePrice;
+use PrevailExcel\Nowpayments\Models\Logger;
 
 /*
  * This file is part of the Laravel NOWPayments package.
@@ -57,13 +56,15 @@ class Nowpayments
      */
     protected $callbackUrl;
 
+    final public const VERSION = '1.0.1';
+
     public function __construct()
     {
         $this->setEnv();
         $this->setKey();
         $this->setBaseUrl();
         $this->setRequestOptions();
-        // $this->checkStatus();
+        $this->checkStatus();
     }
 
     /**
@@ -99,16 +100,16 @@ class Nowpayments
      */
     private function setRequestOptions(string $jwt = null)
     {
-        if ($jwt)
+        if (!$jwt)
             $headers = [
                 'x-api-key' => $this->apiKey,
-                'Authorization' => $jwt,
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json'
             ];
         else
             $headers = [
                 'x-api-key' => $this->apiKey,
+                'Authorization' => 'Bearer ' . $jwt,
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json'
             ];
@@ -137,7 +138,12 @@ class Nowpayments
             $this->baseUrl . $relativeUrl,
             ["body" => json_encode($body)]
         );
-
+        if (strlen(stristr($relativeUrl, "?", true)) > 1)
+            $relativeUrl = stristr($relativeUrl, "?", true);
+        if ($relativeUrl != '/status' && $relativeUrl != '/auth')
+            Logger::updateOrCreate([
+                'endpoint' => $relativeUrl
+            ])->increment('count');
         return $this;
     }
 
@@ -175,7 +181,7 @@ class Nowpayments
     }
 
     /**
-     * @param $data
+     * @param array $data
      * @return array
      * 
      */
@@ -185,10 +191,8 @@ class Nowpayments
             $data =
                 "amount=" . 100 . "&" .
                 "currency_from=" . "usd" . "&" .
-                "currency_to=" . "btc";
+                "currency_to=" . "usdt";
         }
-        // // $data = json_code($data, true);
-        // return '/estimate?'.$data;
         return $this->setHttpResponse('/estimate?' . $data, 'GET')->getResponse();
     }
 
@@ -215,7 +219,7 @@ class Nowpayments
     public function createPayment($data = null): array
     {
         if ($data == null) {
-            $data = array_filter([
+            $data = [
                 'price_amount' => request()->price_amount ?? 100,
                 'price_currency' => request()->price_currency ?? 'usd',
                 'pay_amount' => request()->pay_amount ?? null,
@@ -229,18 +233,25 @@ class Nowpayments
                 'payout_extra_id' => request()->payout_extra_id ?? null,
                 'fixed_rate' => request()->fixed_rate ?? true,
                 "is_fee_paid_by_user" => false
-            ]);
+            ];
         }
+        $dataForEstimate =
+            "amount=" . $data['price_amount'] . "&" .
+            "currency_from=" . $data['price_currency'] . "&" .
+            "currency_to=" . $data['pay_currency'];
 
-        return $this->setHttpResponse('/payment', 'POST', array_filter($data))->getResponse();
+        if ($this->getEstimatePrice($dataForEstimate)['estimated_amount'] > $this->getMinimumPaymentAmount($data['pay_currency'], $data['payout_currency'])['min_amount'])
+            return $this->setHttpResponse('/payment', 'POST', array_filter($data))->getResponse();
+        else
+            return ['success' => false, 'message' => 'Estimated Price is less than the minimun price'];
     }
 
     /**
      * @param int $paymentId
-     * @return Status
+     * @return array
      * 
      */
-    public function getPaymentStatus($paymentId = 1): array
+    public function getPaymentStatus($paymentId): array
     {
         return $this->setHttpResponse('/payment/' . $paymentId, 'GET')->getResponse();
     }
@@ -249,9 +260,9 @@ class Nowpayments
      *   Get the minimum payment amount for a specific pair.
      *   You can provide both currencies in the pair or just currency_from, and we will calculate the minimum payment amount for currency_from and currency which you have specified as the outcome in the Store Settings.
      *   In the case of several outcome wallets we will calculate the minimum amount in the same way we route your payment to a specific wallet.
-     * @param $currency_from
-     * @param $currency_to
-     * @return array
+     *   @param $currency_from
+     *   @param $currency_to
+     *   @return array
      * 
      */
     public function getMinimumPaymentAmount($currency_from, $currency_to = null, $fiat_equivalent = null): array
@@ -263,7 +274,7 @@ class Nowpayments
             $currency_to = Currency::BTC;
         }
         if (!$fiat_equivalent) {
-            $fiat_equivalent = "ngn";
+            $fiat_equivalent = "usd";
         }
 
         return $this->setHttpResponse(
@@ -286,7 +297,7 @@ class Nowpayments
     public function getListOfPayments(string $data = null, string $jwt = null): array
     {
         if ($jwt == null) {
-            throw new IsNullException("You must pass your JWT token to access this endpoint");
+            $jwt = $this->getJwt();
         }
         if ($data == null) {
             $data = "limit=10&page=0&sortBy=created_at&orderBy=asc&dateFrom=" . Carbon::now()->subMonth()->format('Y-m-d') . "&dateTo=" .
@@ -331,5 +342,191 @@ class Nowpayments
         }
 
         return $this->setHttpResponse('/invoice', 'POST', array_filter($data))->getResponse();
+    }
+
+
+    /**
+     * Logins in to your nowpayments account and gets the JWT. Request fields:
+     *
+     * email (optional) - Uses the details provided in the .env file, except overrided by providing another email here.
+     * password (optional) - Uses the details provided in the .env file, except overrided by providing another password here
+     *
+     * @param string $email
+     * @param string $password
+     * @return string JWT
+     * 
+     */
+    public function getJwt(string $email = null, string $password = null)
+    {
+        if (!$email)
+            $email = config('nowpayments.email');
+        if (!$password)
+            $password = config('nowpayments.password');
+
+        $data = array_filter([
+            'email' => $email,
+            'password' => $password
+        ]);
+        return $this->setHttpResponse('/auth', 'POST', $data)->getResponse()['token'];
+    }
+
+    /**
+     * This is the method to create a Recurring Payments plan. Every plan has its unique ID which is required for generating separate payments.
+     *
+     * "title": the name of your recurring payments plan,
+     * "interval_day": recurring payments duration in days,
+     * "amount" : amount of funds paid in fiat/crypto,
+     * "currency" : crypto or fiat currency we support
+     * @param array $data
+     * @return array
+     * 
+     */
+    public function createPlan(array $data = null): array
+    {
+        $jwt = $this->getJwt();
+
+        if ($data == null) {
+            $data = array_filter([
+                "title" => request()->title ?? "Plan Title",
+                "interval_day" => request()->interval ?? 1,
+                "amount" => request()->amount ?? 0.5,
+                "currency" => request()->currency ?? "usd"
+            ]);
+        }
+        $this->setRequestOptions($jwt);
+        return $this->setHttpResponse('/subscriptions/plans', 'POST', array_filter($data))->getResponse();
+    }
+
+    /**
+     * This method allows you to add necessary changes to a created plan. 
+     * They won’t affect users who have already paid; however, the changes will take effect when a new payment is to be made.
+     *
+     * "title": the name of your recurring payments plan,
+     * "interval_day": recurring payments duration in days,
+     * "amount" : amount of funds paid in fiat/crypto,
+     * "currency" : crypto or fiat currency we support
+     * @param array $data
+     * @return array
+     * 
+     */
+    public function updatePlan(string $plan_id = null, array $data = null): array
+    {
+
+        if ($plan_id == null)
+            $plan_id = request()->plan_id;
+        if ($data == null)
+            $data = array_filter([
+                "title" => request()->title ?? "Plan Title",
+                "interval_day" => request()->interval ?? 1,
+                "amount" => request()->amount ?? 0.5,
+                "currency" => request()->currency ?? "usd"
+            ]);
+
+        $jwt = $this->getJwt();
+        $this->setRequestOptions($jwt);
+        return $this->setHttpResponse('/subscriptions/plans/' . $plan_id, 'PATCH', array_filter($data))->getResponse();
+    }
+
+    /**
+     * This method allows you to obtain information about your payment plan.
+     * (you need to specify your payment plan id in the request).
+     * "plan_id": the plan_id of your recurring payments plan,
+     * 
+     * @param string $plan_id
+     * @return array
+     * 
+     */
+    public function getPlan(string $plan_id = null): array
+    {
+        if ($plan_id == null)
+            $plan_id = request()->plan_id;
+
+        return $this->setHttpResponse('/subscriptions/plans/' . $plan_id, 'GET', [])->getResponse();
+    }
+
+    /**
+     * This method allows you to obtain information about all the payment plans you’ve created.
+     * "limit": the limit of plans you want to fetch,
+     * 
+     * @param int $limit
+     * @return array
+     * 
+     */
+    public function getPlans(int $limit = null): array
+    {
+        if ($limit == null)
+            $limit = request()->limit ?? 10;
+
+        return $this->setHttpResponse('/subscriptions/plans/?limit=' . $limit, 'GET', [])->getResponse();
+    }
+
+    /**
+     * This method allows you to send payment links to your customers via email.
+     * A day before the paid period ends, the customer receives a new letter with a new payment link. 
+     * 
+     * "subscription_plan_id": the ID of the payment plan your customer chooses,
+     * "email": customer's email,
+     * @param array $data
+     * @return array
+     * 
+     */
+    public function emailSubscription(array $data = null): array
+    {
+
+        if ($data == null)
+            $data = array_filter([
+                "subscription_plan_id" => request()->plan_id,
+                "email" => request()->email
+            ]);
+
+        $jwt = $this->getJwt();
+        $this->setRequestOptions($jwt);
+        return $this->setHttpResponse('/subscriptions', 'POST', array_filter($data))->getResponse();
+    }
+
+    /**
+     * This method allows you to obtain information about all the Subscriptions you have.
+     * 
+     * @return array
+     * 
+     */
+    public function getSubscriptions(): array
+    {
+        return $this->setHttpResponse('/subscriptions', 'GET', [])->getResponse();
+    }
+
+    /**
+     * Get information about a particular recurring payment via its ID.
+     * "subscription id": the id of recurring payments plan subscribed,
+     * 
+     * @param string $sub_id
+     * @return array
+     * 
+     */
+    public function getSubscription(string $sub_id = null): array
+    {
+        if ($sub_id == null)
+            $sub_id = request()->sub_id;
+
+        return $this->setHttpResponse('/subscriptions/' . $sub_id, 'GET', [])->getResponse();
+    }
+
+    /**
+     * Completely removes a particular payment from the recurring payment plan.
+     * You need to specify the payment plan id in the request.
+     * "subscription id": the id of recurring payments plan subscribed,
+     * 
+     * @param string $sub_id
+     * @return array
+     * 
+     */
+    public function deleteSubscription(string $sub_id = null): array
+    {
+        if ($sub_id == null)
+            $sub_id = request()->sub_id;
+
+        $jwt = $this->getJwt();
+        $this->setRequestOptions($jwt);
+        return $this->setHttpResponse('/subscriptions/' . $sub_id, 'DELETE', [])->getResponse();
     }
 }

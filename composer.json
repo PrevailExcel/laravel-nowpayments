@@ -8,6 +8,7 @@
       "Open Source",
       "payments",
       "crypto",
+      "subscription",
       "Nowpayments",
       "crypto payments",
       "laravel 6",
@@ -18,6 +19,9 @@
     "license": "MIT",
     "minimum-stability": "stable",
     "autoload": {
+      "files": [
+        "utils/helpers/nowpayments.php"
+      ],
         "psr-4": {
             "PrevailExcel\\Nowpayments\\": "src/"
         }
