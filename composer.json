@@ -41,7 +41,7 @@
           "PrevailExcel\\Nowpayments\\NowpaymentsServiceProvider"
         ],
         "aliases": {
-          "'Nowpayments": "PrevailExcel\\Nowpayments\\Facades\\Nowpayments"
+          "Nowpayments": "PrevailExcel\\Nowpayments\\Facades\\Nowpayments"
         }
       }
     }
