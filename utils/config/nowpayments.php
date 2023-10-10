@@ -16,32 +16,32 @@ return [
      * API Key From NOWPayments Dashboard
      *
      */
-    'apiKey' => getenv('NOWPAYMENTS_API_KEY'),
+    'apiKey' => env('NOWPAYMENTS_API_KEY'),
 
     /**
      * You enviroment can either be live or sandbox.
      * Make sure to add the appropriate API key after changing the enviroment in .env
      *
      */
-    'env' => getenv('NOWPAYMENTS_ENV', 'sandbox'),
+    'env' => env('NOWPAYMENTS_ENV', 'sandbox'),
 
     /**
      * NOWPayments Live URL
      *
      */
-    'liveUrl' => getenv('NOWPAYMENTS_LIVE_URL', "https://api.nowpayments.io/v1"),
+    'liveUrl' => env('NOWPAYMENTS_LIVE_URL', "https://api.nowpayments.io/v1"),
 
     /**
      * NOWPayments Sandbox URL
      *
      */
-    'sandboxUrl' => getenv('NOWPAYMENTS_SANDBOX_URL', "https://api-sandbox.nowpayments.io/v1"),
+    'sandboxUrl' => env('NOWPAYMENTS_SANDBOX_URL', "https://api-sandbox.nowpayments.io/v1"),
 
     /**
      * Your callback URL
      *
      */
-    'callbackUrl' => getenv('NOWPAYMENTS_CALLBACK_URL'),
+    'callbackUrl' => env('NOWPAYMENTS_CALLBACK_URL'),
 
     /**
      * Your URL Path
@@ -59,12 +59,12 @@ return [
      * Your Nowpayment email here
      *
      */
-    'email' => getenv('NOWPAYMENTS_EMAIL'),
+    'email' => env('NOWPAYMENTS_EMAIL'),
     
     /**
      * Your Nowpayment password here
      *
      */
-    'password' =>  getenv('NOWPAYMENTS_PASSWORD'),
+    'password' =>  env('NOWPAYMENTS_PASSWORD'),
 
 ];
