@@ -346,6 +346,62 @@ class Nowpayments
 
 
     /**
+     * Create a payout.
+     *
+     * @param array|null $data The custom data for creating the payout. (Default: null)
+     *                         The data should be in the following format:
+     *                         [
+     *                             'withdrawals' => [
+     *                                 [
+     *                                     'address' => '...',
+     *                                     'currency' => '...',
+     *                                     'amount' => ...,
+     *                                     // Optional fields:
+     *                                     'fiat_amount' => ...,
+     *                                     'fiat_currency' => '...'
+     *                                 ],
+     *                                 // Additional withdrawals...
+     *                             ]
+     *                         ]
+     *
+     * @return array response from the API as an array.
+     */
+    public function createPayout(array $data = null): array
+    {
+        $body = '{
+            "ipn_callback_url": "https://nowpayments.io",
+            "withdrawals": []
+        }';
+
+        if ($data == null) {
+            $data = [];
+        }
+
+        $withdrawals = $data['withdrawals'] ?? [];
+
+        foreach ($withdrawals as $withdrawal) {
+            $amount = $withdrawal['amount'] ?? null;
+            $address = $withdrawal['address'] ?? null;
+            $currency = $withdrawal['currency'] ?? null;
+
+            if ($amount && $address && $currency) {
+                $withdrawalData = [
+                    'address' => $address,
+                    'currency' => $currency,
+                    'amount' => $amount,
+                    'ipn_callback_url' => 'https://nowpayments.io'
+                ];
+
+                $bodyData = json_decode($body, true);
+                $bodyData['withdrawals'][] = $withdrawalData;
+                $body = json_encode($bodyData);
+            }
+        }
+
+        return $this->setHttpResponse('/payout', 'POST', array_filter($bodyData))->getResponse();
+    }
+
+    /**
      * Logins in to your nowpayments account and gets the JWT. Request fields:
      *
      * email (optional) - Uses the details provided in the .env file, except overrided by providing another email here.
