@@ -19,6 +19,11 @@ return [
     'apiKey' => env('NOWPAYMENTS_API_KEY'),
 
     /**
+     * IPN Secret from NOWPayments Dashboard
+     */
+    'ipnSecret' => env('NOWPAYMENTS_IPN_SECRET'),
+
+    /**
      * You enviroment can either be live or sandbox.
      * Make sure to add the appropriate API key after changing the enviroment in .env
      *
