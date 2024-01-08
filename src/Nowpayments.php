@@ -344,6 +344,24 @@ class Nowpayments
         return $this->setHttpResponse('/invoice', 'POST', array_filter($data))->getResponse();
     }
 
+    /**
+     * Checks IPN received from Nowpayments IPN
+     * @return bool
+     */
+    public function verifyIPN(): bool
+    {
+        $receivedHmac = request()->header('x-nowpayments-sig');
+        if ($receivedHmac) {
+            $requestData = collect(request()->all())->sortKeys(); // Utilize Collection for sorting
+            $sortedRequestJson = json_encode($requestData, JSON_UNESCAPED_SLASHES);
+            if ($requestData->isNotEmpty()) {
+                $hmac = hash_hmac("sha512", $sortedRequestJson, trim(config('nowpayments.ipnSecret')));
+                return $hmac === $receivedHmac;
+            }
+        }
+        return false;
+    }
+
 
     /**
      * Logins in to your nowpayments account and gets the JWT. Request fields:
