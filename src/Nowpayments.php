@@ -193,6 +193,9 @@ class Nowpayments
                 "currency_from=" . "usd" . "&" .
                 "currency_to=" . "usdt";
         }
+        if(is_array($data)){
+            $data = http_build_query($data);
+        }
         return $this->setHttpResponse('/estimate?' . $data, 'GET')->getResponse();
     }
 
